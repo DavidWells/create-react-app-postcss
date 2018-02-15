@@ -15,30 +15,43 @@ const modifiedRequire = `${originalRequire},require('postcss-use')({ modules: '*
 // version control
 const match1x = /^1\./;
 
-fs.readFile(reactScriptsPackageFile).then(
+// read the react package.json
+readFile(reactScriptsPackageFile).then(
 	json => JSON.parse(json)
 ).then(
 	pkg => {
+		// test for a compatible version
 		if (match1x.test(pkg.version)) {
 			return Promise.all([
+				// read the config scripts
 				readFile(reactScriptsConfigDev),
 				readFile(reactScriptsConfigProd)
 			]).then(
+				// update the config scripts
 				results => [
-					results[0].replace(modifiedRequire, originalRequire).replace(originalRequire, modifiedRequire),
-					results[1].replace(modifiedRequire, originalRequire).replace(originalRequire, modifiedRequire)
+					results[0].replace(modifiedRequire, originalRequire),
+					results[1].replace(modifiedRequire, originalRequire)
 				]
 			).then(
+				// save the updated config scripts
 				results => Promise.all([
 					writeFile(reactScriptsConfigDev, results[0]),
-					writeFile(reactScriptsConfigProd, results[1])
+					writeFile(reactScriptsConfigProd, results[1]),
+					writeFile(reactScriptsPackageFile, JSON.stringify(pkg, null, '  '))
 				])
 			)
+		}
+
+		return true;
+	},
+	error => {
+		if (error.code !== 'ENOENT') {
+			throw error;
 		}
 	}
 );
 
-// helpers
+// read a file
 function readFile(file) {
 	return new Promise((resolve, reject) => {
 		fs.readFile(file, 'utf8', (error, contents) => {
@@ -51,6 +64,7 @@ function readFile(file) {
 	});
 }
 
+// write a file
 function writeFile(file, contents) {
 	return new Promise((resolve, reject) => {
 		fs.writeFile(file, contents, error => {
